@@ -18,6 +18,16 @@ dependencies {
 	// end::actuator[]
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	// tag::tests[]
+
+	/*
+	implementation 'com.marcosbarbero.cloud:spring-cloud-zuul-ratelimit:2.2.0.RELEASE'
+
+	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-zuul:2.2.0.RELEASE'
+
+	 */
+	implementation 'com.github.vladimir-bukhtoyarov:bucket4j-core:4.10.0'
+
+
 	testImplementation('org.springframework.boot:spring-boot-starter-test') {
 		exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
 	}
