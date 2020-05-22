@@ -20,11 +20,8 @@ public class Application implements WebMvcConfigurer {
 
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
-		Refill refill = Refill.intervally(10, Duration.ofMinutes(1));
-		Bandwidth limit = Bandwidth.classic(10, refill);
-		Bucket bucket = Bucket4j.builder().addLimit(limit).build();
-		registry.addInterceptor(new RateLimitInterceptor(bucket, 1))
-				.addPathPatterns("/");
+		registry.addInterceptor(new RateLimitInterceptor())
+				.addPathPatterns("/simple");
 	}
 
 

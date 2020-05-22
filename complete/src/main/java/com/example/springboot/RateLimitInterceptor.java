@@ -3,30 +3,44 @@ package com.example.springboot;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import io.github.bucket4j.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import io.github.bucket4j.Bucket;
-import io.github.bucket4j.ConsumptionProbe;
-
 public class RateLimitInterceptor implements HandlerInterceptor {
 
-    private final Bucket bucket;
+    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
-    private final int numTokens;
-
-    public RateLimitInterceptor(Bucket bucket, int numTokens) {
-        this.bucket = bucket;
-        this.numTokens = numTokens;
-    }
+    private final Bucket freeBucket = Bucket4j.builder()
+            .addLimit(Bandwidth.classic(10, Refill.intervally(10, Duration.ofMinutes(1))))
+            .build();
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response,
                              Object handler) throws Exception {
 
-        ConsumptionProbe probe = this.bucket.tryConsumeAndReturnRemaining(this.numTokens);
+        Bucket requestBucket;
+
+        String apiKey = request.getHeader("X-api-key");
+        System.out.println("apiKey" + apiKey);
+        if (apiKey != null && !apiKey.isBlank()) {
+            if (apiKey.startsWith("1")) {
+                requestBucket = this.buckets.computeIfAbsent(apiKey, key -> premiumBucket());
+            }
+            else {
+                requestBucket = this.buckets.computeIfAbsent(apiKey, key -> standardBucket());
+            }
+        }
+        else {
+            requestBucket = this.freeBucket;
+        }
+
+        ConsumptionProbe probe = requestBucket.tryConsumeAndReturnRemaining(1);
         if (probe.isConsumed()) {
             response.addHeader("X-Rate-Limit-Remaining",
                     Long.toString(probe.getRemainingTokens()));
@@ -38,7 +52,18 @@ public class RateLimitInterceptor implements HandlerInterceptor {
                 Long.toString(TimeUnit.NANOSECONDS.toMillis(probe.getNanosToWaitForRefill())));
 
         return false;
+    }
 
+    private static Bucket standardBucket() {
+        return Bucket4j.builder()
+                .addLimit(Bandwidth.classic(50, Refill.intervally(50, Duration.ofMinutes(1))))
+                .build();
+    }
+
+    private static Bucket premiumBucket() {
+        return Bucket4j.builder()
+                .addLimit(Bandwidth.classic(5, Refill.intervally(5, Duration.ofSeconds(5))))
+                .build();
     }
 
 }
